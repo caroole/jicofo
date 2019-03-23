@@ -401,6 +401,12 @@ public class FocusComponent
 
         logger.info("Focus request for room: " + room);
 
+        if(!validRoomName(room)) {
+
+            // Error not authorized
+            return ErrorFactory.createNotAuthorizedError(
+                query, "not authorized for this room");
+        }
         boolean roomExists = focusManager.getConference(room) != null;
 
         if (focusManager.isShutdownInProgress() && !roomExists)
@@ -463,7 +469,12 @@ public class FocusComponent
         return response;
     }
 
-    private org.jivesoftware.smack.packet.IQ handleAuthUrlIq(
+    private boolean validRoomName(EntityBareJid room) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	private org.jivesoftware.smack.packet.IQ handleAuthUrlIq(
             LoginUrlIq authUrlIq)
     {
         if (authAuthority == null)
