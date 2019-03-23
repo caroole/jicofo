@@ -51,6 +51,18 @@ import java.util.stream.*;
  * participants, as well as the COLIBRI session with the jitsi-videobridge
  * instances used for the conference.
  *
+ * A note on synchronization: this class uses a lot of 'synchronized' blocks,
+ * on 4 different objects ({@link #bridges}, {@link #participantLock},
+ * {@code this} and {@link BridgeSession#octoParticipant}). At the time of this
+ * writing it seems that multiple locks are acquired only in the following
+ * orders:
+ * {@code participantsLock} -> {@code bridges}, and
+ * {@code participantsLock} -> {@code this} -> {@code bridges}.
+ *
+ * This seems safe, but it is hard to maintain this way, and we should
+ * re-factor to simplify.
+ *
+ *
  * @author Pawel Domas
  * @author Boris Grozev
  */
@@ -65,6 +77,11 @@ public class JitsiMeetConferenceImpl
      */
     private final static Logger classLogger
         = Logger.getLogger(JitsiMeetConferenceImpl.class);
+
+    /**
+     * A random generator.
+     */
+    private final static Random RANDOM = new Random();
 
     /**
      * An identifier of this {@link JitsiMeetConferenceImpl}.
@@ -146,6 +163,11 @@ public class JitsiMeetConferenceImpl
 
     /**
      * This lock is used to synchronise write access to {@link #participants}.
+     *
+     * WARNING: To avoid deadlocks we must make sure that any code paths that
+     * lock both {@link #bridges} and {@link #participantLock} does so in the
+     * correct order. The lock on {@link #participantLock} must be acquired
+     * first.
      */
     private final Object participantLock = new Object();
 
@@ -223,6 +245,12 @@ public class JitsiMeetConferenceImpl
 
     /**
      * The list of {@link BridgeSession} currently in use by this conference.
+     *
+     * WARNING: To avoid deadlocks we must make sure that any code paths that
+     * lock both {@link #bridges} and {@link #participantLock} does so in the
+     * correct order. The lock on {@link #participantLock} must be acquired
+     * first.
+     *
      */
     private final List<BridgeSession> bridges = new LinkedList<>();
 
@@ -409,15 +437,29 @@ public class JitsiMeetConferenceImpl
 
         if (jibriSipGateway != null)
         {
-            jibriSipGateway.dispose();
-            jibriOpSet.removeJibri(jibriSipGateway);
+            try
+            {
+                jibriSipGateway.dispose();
+                jibriOpSet.removeJibri(jibriSipGateway);
+            }
+            catch (Exception e)
+            {
+                logger.error("jibriSipGateway.dispose error", e);
+            }
             jibriSipGateway = null;
         }
 
         if (jibriRecorder != null)
         {
-            jibriRecorder.dispose();
-            jibriOpSet.removeJibri(jibriRecorder);
+            try
+            {
+                jibriRecorder.dispose();
+                jibriOpSet.removeJibri(jibriRecorder);
+            }
+            catch (Exception e)
+            {
+                logger.error("jibriRecorder.dispose error", e);
+            }
             jibriRecorder = null;
         }
 
@@ -429,13 +471,34 @@ public class JitsiMeetConferenceImpl
 
         protocolProviderHandler.removeRegistrationListener(this);
 
-        disposeConference();
+        try
+        {
+            disposeConference();
+        }
+        catch (Exception e)
+        {
+            logger.error("disposeConference error", e);
+        }
 
-        leaveTheRoom();
+        try
+        {
+            leaveTheRoom();
+        }
+        catch (Exception e)
+        {
+            logger.error("leaveTheRoom error", e);
+        }
 
         if (jingle != null)
         {
-            jingle.terminateHandlersSessions(this);
+            try
+            {
+                jingle.terminateHandlersSessions(this);
+            }
+            catch (Exception e)
+            {
+                logger.error("terminateHandlersSessions error", e);
+            }
         }
 
         if (listener != null)
@@ -556,8 +619,11 @@ public class JitsiMeetConferenceImpl
             transcriberManager = null;
         }
 
-        chatRoom.leave();
+        if (chatRoom.isJoined()) {
+            chatRoom.leave();
+        }
 
+        chatRoom.setConference(null);
         chatRoom = null;
     }
 
@@ -1445,6 +1511,73 @@ public class JitsiMeetConferenceImpl
     }
 
     /**
+     * Will re-allocate channels on the bridge for participant who signals ICE
+     * state 'failed'. New transport is sent in the 'transport-info' message
+     * similar to the conference migration scenario.
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public XMPPError onSessionInfo(JingleSession session, JingleIQ iq)
+    {
+        Jid address = session.getAddress();
+        Participant participant = findParticipantForJingleSession(session);
+
+        // FIXME: (duplicate) there's very similar logic in onSessionAccept
+        if (participant == null)
+        {
+            String errorMsg = "No session for " + address;
+
+            logger.error("onSessionInfo: " + errorMsg);
+
+            return XMPPError.from(
+                    XMPPError.Condition.item_not_found, errorMsg).build();
+        }
+
+        IceStatePacketExtension iceStatePE
+                = iq.getExtension(
+                        IceStatePacketExtension.ELEMENT_NAME,
+                        IceStatePacketExtension.NAMESPACE);
+        String iceState = iceStatePE != null ? iceStatePE.getText() : null;
+
+        if (!"failed".equalsIgnoreCase(iceState))
+        {
+            logger.info(String.format(
+                    "Ignored 'ice-state' update for participant: %s state: %s",
+                    address,
+                    iceState));
+
+            return null;
+        }
+
+        BridgeSessionPacketExtension bsPE
+                = iq.getExtension(
+                        BridgeSessionPacketExtension.ELEMENT_NAME,
+                        BridgeSessionPacketExtension.NAMESPACE);
+        String bridgeSessionId = bsPE != null ? bsPE.getId() : null;
+        BridgeSession bridgeSession = findBridgeSession(participant);
+
+        if (bridgeSession != null)
+        {
+            logger.info(String.format(
+                    "Received ICE failed notification from %s, session: %s",
+                    address,
+                    bridgeSession));
+            reInviteParticipant(participant);
+        }
+        else
+        {
+            logger.info(String.format(
+                    "Ignored ICE failed notification for invalid session,"
+                        + " participant: %s, bridge session ID: %s",
+                    address,
+                    bridgeSessionId));
+        }
+
+        return null;
+    }
+
+    /**
      * Advertises new sources across all conference participants by using
      * 'source-add' Jingle notification.
      *
@@ -2163,6 +2296,8 @@ public class JitsiMeetConferenceImpl
      */
     void onBridgeDown(Jid bridgeJid)
     {
+        List<Participant> participantsToReinvite = Collections.EMPTY_LIST;
+
         synchronized (bridges)
         {
             BridgeSession bridgeSession = findBridgeSession(bridgeJid);
@@ -2172,8 +2307,7 @@ public class JitsiMeetConferenceImpl
 
                 // Note: the Jingle sessions are still alive, we'll just
                 // (try to) move to a new bridge and send transport-replace.
-                List<Participant> participantsToReinvite
-                    = bridgeSession.terminateAll();
+                participantsToReinvite = bridgeSession.terminateAll();
 
                 bridges.remove(bridgeSession);
                 setConferenceProperty(
@@ -2181,9 +2315,12 @@ public class JitsiMeetConferenceImpl
                     Integer.toString(bridges.size()));
 
                 updateOctoRelays();
-
-                reInviteParticipants(participantsToReinvite);
             }
+        }
+
+        if (!participantsToReinvite.isEmpty())
+        {
+            reInviteParticipants(participantsToReinvite);
         }
     }
 
@@ -2315,7 +2452,23 @@ public class JitsiMeetConferenceImpl
         {
             for (Participant participant : participants)
             {
-                participant.terminateBridgeSession();
+                boolean synchronousExpire = false;
+                BridgeSession session = participant.getBridgeSession();
+                // If Participant is being re-invited to a healthy session
+                // do a graceful channel expire with waiting for the
+                // RESULT response. At the time of this writing the JVB may
+                // process packets out of order and in the ICE failed scenario
+                // the channel may not be expired correctly thus not
+                // resulting in the restart at all. The ICE transport manager
+                // must be recreated on the bridge to get new ICE credentials.
+                if (session != null
+                        && session.bridge.isOperational()
+                        && !session.hasFailed)
+                {
+                    synchronousExpire = true;
+                }
+
+                participant.terminateBridgeSession(synchronousExpire);
             }
             for (Participant participant : participants)
             {
@@ -2464,6 +2617,22 @@ public class JitsiMeetConferenceImpl
         final Bridge bridge;
 
         /**
+         * The bridge session's id.
+         *
+         * At the time of this writing it's used to distinguish between current
+         * and outdated ICE failed notifications coming from the client.
+         *
+         * It can often happen that during a bridge failure multiple clients
+         * will send ICE failed messages because all of them will have
+         * connectivity broken. Jicofo will mark the bridge as unhealthy when
+         * processing the first notification and any following ones should be
+         * discarded.
+         */
+        final String id
+            = JitsiMeetConferenceImpl.this.id
+                    + "_" +Integer.toHexString(RANDOM.nextInt(0x1_000000));
+
+        /**
          * The list of participants in the conference which use this
          * {@link BridgeSession}.
          */
@@ -2523,7 +2692,8 @@ public class JitsiMeetConferenceImpl
 
         /**
          * Expires the COLIBRI channels (via
-         * {@link #terminate(AbstractParticipant)}) for all participants.
+         * {@link #terminate(AbstractParticipant, boolean)}) for all
+         * participants.
          * @return the list of participants which were removed from
          * {@link #participants} as a result of this call (does not include
          * the Octo participant).
@@ -2542,7 +2712,7 @@ public class JitsiMeetConferenceImpl
 
             if (octoParticipant != null)
             {
-                terminate(octoParticipant);
+                terminate(octoParticipant, false);
             }
 
             return terminatedParticipants;
@@ -2554,13 +2724,16 @@ public class JitsiMeetConferenceImpl
          * {@link #participants}.
          * @param participant the {@link Participant} for which to expire the
          * COLIBRI channels.
+         * @param syncExpire - whether or not the Colibri channels should be
+         * expired in a synchronous manner, that is with blocking the current
+         * thread until the RESULT packet is received.
          * @return {@code true} if the participant was a member of
          * {@link #participants} and was removed as a result of this call, and
          * {@code false} otherwise.
          */
-        public boolean terminate(AbstractParticipant participant)
+        public boolean terminate(AbstractParticipant participant,
+                                 boolean syncExpire)
         {
-            //TODO synchronize?
             boolean octo = participant == this.octoParticipant;
             boolean removed = octo || participants.remove(participant);
             if (removed)
@@ -2579,7 +2752,7 @@ public class JitsiMeetConferenceImpl
                         ? ((Participant) participant).getMucJid().toString()
                         : "octo";
                 logger.info("Expiring channels for: " + id + " on: " + bridge);
-                colibriConference.expireChannels(channelsInfo);
+                colibriConference.expireChannels(channelsInfo, syncExpire);
             }
 
             if (octo)
@@ -2775,6 +2948,16 @@ public class JitsiMeetConferenceImpl
             FocusBundleActivator.getSharedThreadPool().submit(channelAllocator);
 
             return octoParticipant;
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.format(
+                    "BridgeSession[id=%s, bridge=%s]@%d",
+                    id,
+                    bridge,
+                    hashCode());
         }
     }
 

@@ -21,7 +21,7 @@
     <assembly.skipAssembly>true</assembly.skipAssembly>
     <jetty.version>8.1.16.v20140903</jetty.version>
     <smack.version>4.2.2-b1c107f</smack.version>
-    <jitsi-desktop.version>2.13.f6042d3</jitsi-desktop.version>
+    <jitsi-desktop.version>2.13.b72220a</jitsi-desktop.version>
   </properties>
 
   <dependencies>
@@ -135,7 +135,7 @@
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>libjitsi</artifactId>
-      <version>1.0-20181119.181042-364</version>
+      <version>1.0-20190130.211714-376</version>
     </dependency>
     <!-- TODO it should not be here, but for some reason ice4j version 1.0 is loaded without explicit declaration -->
     <dependency>
