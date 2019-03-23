@@ -484,7 +484,18 @@ public class FocusComponent
     	FileInputStream fis;
     	String roomName = room.toString().split("@")[0];
 		try {
-			fis = new FileInputStream("/etc/jitsi/jicofo/room.properties");
+			if(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)!=null 
+					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION).length()>0
+					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME)!=null 
+					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME).length()>0) {
+				fis = new FileInputStream(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)
+						+"/"
+						+System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME)
+						+"/room.properties");
+			}
+			else {
+				fis = new FileInputStream("/root/room.properties");
+			}
 	    	prop.load(fis);  
 	    	fis.close();
 	    	logger.info("validRoomName:"+prop.toString());
