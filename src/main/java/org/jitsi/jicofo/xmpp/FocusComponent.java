@@ -21,6 +21,15 @@ import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
 import net.java.sip.communicator.util.*;
 import net.java.sip.communicator.util.Logger;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Properties;
+
 import org.jitsi.impl.protocol.xmpp.extensions.*;
 import org.jitsi.jicofo.*;
 import org.jitsi.jicofo.auth.*;
@@ -471,6 +480,39 @@ public class FocusComponent
 
     private boolean validRoomName(EntityBareJid room) {
 		// TODO Auto-generated method stub
+    	Properties prop = new Properties();
+    	FileInputStream fis;
+    	String roomName = room.toString().split("@")[0];
+		try {
+			fis = new FileInputStream("/etc/jitsi/jicofo/room.properties");
+	    	prop.load(fis);  
+	    	fis.close();
+	    	logger.info("validRoomName:"+prop.toString());
+	    	
+	    	for (String key : prop.stringPropertyNames()) {
+	            if(key.equals(roomName)) {
+	            	Date d;
+					try {
+						SimpleDateFormat aDate=new SimpleDateFormat("yyyy-MM-dd  HH:mm:ss");
+						d = aDate.parse(prop.getProperty(key));
+		            	if(d.getTime() > new Date().getTime()) {
+		            		return true;
+		            	}
+					} catch (ParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+	            }
+	        }
+
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 		return false;
 	}
 
