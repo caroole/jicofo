@@ -504,7 +504,7 @@ public class FocusComponent
 	            if(key.equals(roomName)) {
 	            	Date d;
 					try {
-						SimpleDateFormat aDate=new SimpleDateFormat("yyyy-MM-dd  HH:mm:ss");
+						SimpleDateFormat aDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 						d = aDate.parse(prop.getProperty(key));
 		            	if(d.getTime() > new Date().getTime()) {
 		            		return true;
