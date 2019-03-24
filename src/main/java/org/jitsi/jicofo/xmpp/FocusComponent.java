@@ -21,6 +21,7 @@ import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
 import net.java.sip.communicator.util.*;
 import net.java.sip.communicator.util.Logger;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -488,13 +489,27 @@ public class FocusComponent
 					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION).length()>0
 					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME)!=null 
 					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME).length()>0) {
-				fis = new FileInputStream(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)
+				File f = new File(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)
 						+"/"
 						+System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME)
 						+"/room.properties");
+				if(f.exists()) {
+					fis = new FileInputStream(f);
+				}
+				else {
+					logger.info("room.properties not found");
+					return true;
+				}
 			}
 			else {
-				fis = new FileInputStream("/root/room.properties");
+				File f = new File("/root/room.properties");
+				if(f.exists()) {
+					fis = new FileInputStream("/root/room.properties");
+				}
+				else {
+					logger.info("room.properties not found");
+					return true;					
+				}
 			}
 	    	prop.load(fis);  
 	    	fis.close();
@@ -519,6 +534,7 @@ public class FocusComponent
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
