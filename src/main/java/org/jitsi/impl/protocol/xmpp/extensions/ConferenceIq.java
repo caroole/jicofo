@@ -108,6 +108,8 @@ public class ConferenceIq
      * User's authenticated identity name(login name).
      */
     private String identity;
+    
+    private String extensionMsg;
 
     /**
      * Creates new instance of <tt>ConferenceIq</tt>.
@@ -188,7 +190,15 @@ public class ConferenceIq
         this.focusJid = focusJid;
     }
 
-    /**
+    public String getExtensionMsg() {
+		return extensionMsg;
+	}
+
+	public void setExtensionMsg(String extensionMsg) {
+		this.extensionMsg = extensionMsg;
+	}
+
+	/**
      * Adds property packet extension to this IQ.
      * @param property the instance <tt>Property</tt> to be added to this IQ.
      */
@@ -354,5 +364,7 @@ public class ConferenceIq
         {
             return getAttributeAsString(VALUE_ATTR_NAME);
         }
+        
+        
     }
 }

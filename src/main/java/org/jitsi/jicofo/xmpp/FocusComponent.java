@@ -29,6 +29,8 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import org.jitsi.impl.protocol.xmpp.extensions.*;
@@ -75,6 +77,7 @@ public class FocusComponent
     private final static int ROOM_POLICY_ERROR_OK = 0;
     private final static int ROOM_POLICY_ERROR_INVALID_ROOM = 1;
     private final static int ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT = 2;
+    private final static int ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE = 3;
     
     /**
      * The JID from which shutdown requests are accepted.
@@ -413,17 +416,22 @@ public class FocusComponent
     {
         ConferenceIq response = new ConferenceIq();
         EntityBareJid room = query.getRoom();
+        
 
         logger.info("Focus request for room: " + room);
 
         JitsiMeetConferenceImpl conference = focusManager.getConference(room);
-        switch(validRoomPolicy(room,conference)) {
+        Map<String,String> errMsg = new HashMap();
+        String expireDate = "";
+        switch(validRoomPolicy(room,conference,errMsg)) {
         case ROOM_POLICY_ERROR_INVALID_ROOM:
         	return ErrorFactory.createReservationError(
                 query, new Result(ROOM_POLICY_ERROR_INVALID_ROOM,"INVALID_ROOM"));
         case ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT:
         	return ErrorFactory.createReservationError(
                     query, new Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
+        case ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE:
+        	expireDate = errMsg.get("expireDate");
         default:
         	break;
         	
@@ -467,6 +475,14 @@ public class FocusComponent
         // Config
         response.setFocusJid(focusAuthJid);
 
+        response.setExtensionMsg("ok");
+        response.setIdentity("ok");
+        if(!expireDate.isEmpty()) {
+	        // extensionMsg
+	        response.setExtensionMsg(expireDate);
+	        response.setIdentity(expireDate);
+        }
+
         // Authentication module enabled?
         response.addProperty(
             new ConferenceIq.Property(
@@ -491,7 +507,7 @@ public class FocusComponent
         return response;
     }
 
-    private int validRoomPolicy(EntityBareJid roomEnt, JitsiMeetConferenceImpl roomImpl) {
+    private int validRoomPolicy(EntityBareJid roomEnt, JitsiMeetConferenceImpl roomImpl,Map<String,String> errMsg) {
 		// TODO Auto-generated method stub
     	Properties prop = new Properties();
     	FileInputStream fis;
@@ -535,8 +551,15 @@ public class FocusComponent
 	            	String[] values = prop.getProperty(key).split(",");
 
 	            	//第一个必须为日期限制
-	    	    	if(values.length >=1 && !validRoomDate(values[0])) {
-	    	    		return ROOM_POLICY_ERROR_INVALID_ROOM;
+	    	    	if(values.length >=1 ) {
+	    	    		long expireDate = validRoomDate(values[0]);
+	    	    		if(expireDate <= 0){
+	    	    			return ROOM_POLICY_ERROR_INVALID_ROOM;
+	    	    		}
+	    	    		else if(expireDate <= 86400000 * 10) {
+	    	    			errMsg.put("expireDate", values[0]);
+	    	    			return ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE;
+	    	    		}
 	    	    	}
 	    	    	//第二个为人数限制
 	    	    	if(values.length >= 2 && roomImpl!=null && !validRoomParticipantCount(Integer.parseInt(values[1]),roomImpl.getParticipantCount())) {
@@ -567,20 +590,18 @@ public class FocusComponent
 		return false;
 	}
 
-	private boolean validRoomDate(String validDate) {
+	private long validRoomDate(String validDate) {
 
     	Date d;
 		try {
 			SimpleDateFormat aDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			d = aDate.parse(validDate);
-        	if(d.getTime() > new Date().getTime()) {
-        		return true;
-        	}
+			return d.getTime() - new Date().getTime();
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return false;
+		return 86400000 * 100;
 	}
 
 	private org.jivesoftware.smack.packet.IQ handleAuthUrlIq(
