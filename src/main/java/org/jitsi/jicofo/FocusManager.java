@@ -362,6 +362,10 @@ public class FocusManager
 
                 conference = createConference(room, properties, loggingLevel);
             }
+            if(conference != null && properties.get("sessionId")!=null) {
+
+                conference.setSessionId(properties.get("sessionId"));
+            }
         }
 
         try

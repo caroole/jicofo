@@ -87,6 +87,8 @@ public class JitsiMeetConferenceImpl
      * An identifier of this {@link JitsiMeetConferenceImpl}.
      */
     private final String id;
+    
+    private String sessionId;
 
     /**
      * Name of MUC room that is hosting Jitsi Meet conference.
@@ -2241,7 +2243,16 @@ public class JitsiMeetConferenceImpl
         return id;
     }
 
-    @Override
+
+	public String getSessionId() {
+		return sessionId;
+	}
+
+	public void setSessionId(String sessionId) {
+		this.sessionId = sessionId;
+	}
+
+	@Override
     public void handleEvent(Event event)
     {
         if (!(event instanceof BridgeEvent))

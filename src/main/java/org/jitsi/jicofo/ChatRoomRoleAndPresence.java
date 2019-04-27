@@ -26,6 +26,7 @@ import org.jitsi.jicofo.event.*;
 import org.jitsi.protocol.xmpp.*;
 import org.jitsi.util.Logger;
 import org.jitsi.eventadmin.*;
+import org.jitsi.impl.protocol.xmpp.extensions.LogoutIq;
 import org.jxmpp.jid.*;
 
 import java.util.*;
@@ -133,6 +134,11 @@ public class ChatRoomRoleAndPresence
 
         if (authAuthority != null)
         {
+        	if(conference.getSessionId()!=null) {
+        		LogoutIq iq = new LogoutIq();
+        		iq.setSessionId(conference.getSessionId());
+        		authAuthority.processLogoutIq(iq);
+        	}
             authAuthority.removeAuthenticationListener(this);
             authAuthority = null;
         }

@@ -453,10 +453,13 @@ public class FocusComponent
         {
             return error;
         }
+        
+        Map<String, String> propertiesMap = query.getPropertiesMap();
+        propertiesMap.put("sessionId", query.getSessionId());
 
         boolean ready
             = focusManager.conferenceRequest(
-                    room, query.getPropertiesMap());
+                    room, propertiesMap);
 
         if (!isFocusAnonymous && authAuthority == null)
         {
