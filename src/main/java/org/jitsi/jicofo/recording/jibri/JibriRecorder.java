@@ -24,6 +24,7 @@ import org.jitsi.protocol.xmpp.*;
 import org.jitsi.util.*;
 import org.jivesoftware.smack.packet.*;
 
+import java.io.File;
 import java.util.concurrent.*;
 
 /**
@@ -148,6 +149,9 @@ public class JibriRecorder
             if (jibriSession.start())
             {
                 logger.info("Started Jibri session");
+                File file=new File("/srv/vmeeting/record/"+conference.getRoomName().getLocalpart()+".mp4");
+                if(file.exists()&&file.isFile())
+                    file.delete();
                 return JibriIq.createResult(iq, sessionId);
             }
             else
