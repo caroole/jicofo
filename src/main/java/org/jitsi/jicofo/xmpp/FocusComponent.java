@@ -78,6 +78,7 @@ public class FocusComponent
     private final static int ROOM_POLICY_ERROR_INVALID_ROOM = 1;
     private final static int ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT = 2;
     private final static int ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE = 3;
+    private final static int ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE = 4;
     
     /**
      * The JID from which shutdown requests are accepted.
@@ -359,7 +360,7 @@ public class FocusComponent
      *         which should be returned to the user
      */
     public org.jivesoftware.smack.packet.IQ processExtensions(
-            ConferenceIq query, ConferenceIq response, boolean roomExists)
+            ConferenceIq query, ConferenceIq response, boolean roomExists,boolean canCreate)
     {
         Jid peerJid = query.getFrom();
         String identity = null;
@@ -380,7 +381,7 @@ public class FocusComponent
             if (!roomExists)
             {
                 identity = authAuthority.getUserIdentity(peerJid);
-                if (identity == null)
+                if (identity == null || !canCreate)
                 {
                     // Error not authorized
                     return ErrorFactory.createNotAuthorizedError(
@@ -423,7 +424,8 @@ public class FocusComponent
         JitsiMeetConferenceImpl conference = focusManager.getConference(room);
         Map<String,String> errMsg = new HashMap();
         String expireDate = "";
-        switch(validRoomPolicy(room,conference,errMsg)) {
+        boolean canCreateConference = true;
+        switch(validRoomPolicy(query,conference,errMsg)) {
         case ROOM_POLICY_ERROR_INVALID_ROOM:
         	return ErrorFactory.createReservationError(
                 query, new Result(ROOM_POLICY_ERROR_INVALID_ROOM,"INVALID_ROOM"));
@@ -432,6 +434,10 @@ public class FocusComponent
                     query, new Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
         case ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE:
         	expireDate = errMsg.get("expireDate");
+        	break;
+        case ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE:
+        	canCreateConference = false;
+        	break;
         default:
         	break;
         	
@@ -448,7 +454,7 @@ public class FocusComponent
 
         // Authentication and reservations system logic
         org.jivesoftware.smack.packet.IQ error
-            = processExtensions(query, response, roomExists);
+            = processExtensions(query, response, roomExists,canCreateConference);
         if (error != null)
         {
             return error;
@@ -510,10 +516,11 @@ public class FocusComponent
         return response;
     }
 
-    private int validRoomPolicy(EntityBareJid roomEnt, JitsiMeetConferenceImpl roomImpl,Map<String,String> errMsg) {
+    private int validRoomPolicy(ConferenceIq iq, JitsiMeetConferenceImpl roomImpl,Map<String,String> errMsg) {
 		// TODO Auto-generated method stub
     	Properties prop = new Properties();
     	FileInputStream fis;
+    	EntityBareJid roomEnt = iq.getRoom();
     	String roomName = roomEnt.toString().split("@")[0];
 		try {
 			if(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)!=null 
@@ -567,6 +574,21 @@ public class FocusComponent
 	    	    	//第二个为人数限制
 	    	    	if(values.length >= 2 && roomImpl!=null && !validRoomParticipantCount(Integer.parseInt(values[1]),roomImpl.getParticipantCount())) {
 	    	    		return ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT;
+	    	    	}
+	    	    	//第三个是管理员账号限制
+	    	    	if( values.length >= 3 ) {
+	    	    		String user = iq.getFrom().getLocalpartOrNull().toString();
+	    	    		String[] userList = values[2].split(":");
+	    	    		boolean bFind = false;
+	    	    		for(String u:userList) {
+	    	    			if(u.equals(user)) {
+	    	    				bFind = true;
+	    	    				break;
+	    	    			}
+	    	    		}
+	    	    		if(!bFind) {
+	    	    			return ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE;
+	    	    		}
 	    	    	}
 	    	    	return ROOM_POLICY_ERROR_OK;
 	            }
