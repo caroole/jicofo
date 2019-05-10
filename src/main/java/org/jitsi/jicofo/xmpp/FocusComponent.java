@@ -77,7 +77,6 @@ public class FocusComponent
     private final static int ROOM_POLICY_ERROR_OK = 0;
     private final static int ROOM_POLICY_ERROR_INVALID_ROOM = 1;
     private final static int ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT = 2;
-    private final static int ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE = 3;
     private final static int ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE = 4;
     
     /**
@@ -432,8 +431,6 @@ public class FocusComponent
         case ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT:
         	return ErrorFactory.createReservationError(
                     query, new Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
-        case ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE:
-        	break;
         case ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE:
         	canCreateConference = false;
         	break;
