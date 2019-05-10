@@ -433,7 +433,6 @@ public class FocusComponent
         	return ErrorFactory.createReservationError(
                     query, new Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
         case ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE:
-        	expireDate = errMsg.get("expireDate");
         	break;
         case ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE:
         	canCreateConference = false;
@@ -441,6 +440,9 @@ public class FocusComponent
         default:
         	break;
         	
+        }
+        if(errMsg.get("expireDate") != null) {
+        	expireDate = errMsg.get("expireDate");
         }
         boolean roomExists = conference != null;
 
@@ -568,7 +570,6 @@ public class FocusComponent
 	    	    		}
 	    	    		else if(expireDate <= 86400000 * 10) {
 	    	    			errMsg.put("expireDate", values[0]);
-	    	    			return ROOM_POLICY_ERROR_ROOM_WILL_EXPIRE;
 	    	    		}
 	    	    	}
 	    	    	//第二个为人数限制
