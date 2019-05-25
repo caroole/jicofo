@@ -559,11 +559,19 @@ public class FocusComponent
 	            	
 	            	String[] values = prop.getProperty(key).split(",");
 
-	            	//第一个必须为日期限制
+	            	//第一个必须为日期限制,第四个是日期到期提醒天数
 	    	    	if(values.length >=1 ) {
 	    	    		long expireDate = validRoomDate(values[0]);
 	    	    		if(expireDate <= 0){
 	    	    			return ROOM_POLICY_ERROR_INVALID_ROOM;
+	    	    		}
+	    	    		else if(values.length >=4) {
+	    	    			int days = Integer.parseInt(values[3]);
+	    	    			if(days > 0) {
+	    	    				if(expireDate <= 86400000 * days) {
+	    	    	    			errMsg.put("expireDate", values[0]);
+	    	    	    		}
+	    	    			}
 	    	    		}
 	    	    		else if(expireDate <= 86400000 * 10) {
 	    	    			errMsg.put("expireDate", values[0]);
