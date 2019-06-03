@@ -22,7 +22,7 @@ import mock.jvb.*;
 import mock.xmpp.*;
 import mock.xmpp.pubsub.*;
 
-import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
+import org.jitsi.xmpp.extensions.colibri.*;
 import net.java.sip.communicator.util.*;
 
 import org.jitsi.eventadmin.*;
@@ -30,7 +30,7 @@ import org.jitsi.jicofo.discovery.*;
 import org.jitsi.jicofo.event.*;
 import org.jitsi.jicofo.util.*;
 import org.jitsi.protocol.xmpp.*;
-import org.jitsi.util.*;
+import org.jitsi.utils.*;
 import org.jitsi.videobridge.stats.*;
 
 import org.jivesoftware.smack.packet.*;

@@ -17,15 +17,15 @@
  */
 package org.jitsi.jicofo.recording.jibri;
 
-import net.java.sip.communicator.impl.protocol.jabber.extensions.jibri.*;
-import net.java.sip.communicator.impl.protocol.jabber.extensions.jibri.JibriIq.*;
+import org.jitsi.xmpp.extensions.jibri.*;
+import org.jitsi.xmpp.extensions.jibri.JibriIq.*;
 import net.java.sip.communicator.service.protocol.*;
 import org.jetbrains.annotations.*;
 import org.jitsi.eventadmin.*;
 import org.jitsi.jicofo.*;
 import org.jitsi.osgi.*;
 import org.jitsi.protocol.xmpp.*;
-import org.jitsi.util.*;
+import org.jitsi.utils.logging.*;
 import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.packet.*;
 import org.jxmpp.jid.*;

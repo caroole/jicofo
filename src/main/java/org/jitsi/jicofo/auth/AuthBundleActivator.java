@@ -18,13 +18,11 @@
 package org.jitsi.jicofo.auth;
 
 import net.java.sip.communicator.util.*;
-import net.java.sip.communicator.util.Logger;
 
-import org.eclipse.jetty.ajp.*;
 import org.eclipse.jetty.server.*;
 import org.jitsi.rest.*;
 import org.jitsi.service.configuration.*;
-import org.jitsi.util.*;
+import org.jitsi.utils.*;
 import org.jxmpp.jid.impl.*;
 import org.osgi.framework.*;
 
@@ -160,28 +158,6 @@ public class AuthBundleActivator
         handlers.add(new org.jitsi.jicofo.rest.HandlerImpl(bundleContext));
 
         return initializeHandlerList(handlers);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected Server initializeServer(BundleContext bundleContext)
-        throws Exception
-    {
-        Server server = super.initializeServer(bundleContext);
-
-        if (authAuthority instanceof ShibbolethAuthAuthority)
-        {
-            // AJP
-            Ajp13SocketConnector ajp13SocketConnector
-                = new Ajp13SocketConnector();
-
-            ajp13SocketConnector.setPort(8009);
-            server.addConnector(ajp13SocketConnector);
-        }
-
-        return server;
     }
 
     /**

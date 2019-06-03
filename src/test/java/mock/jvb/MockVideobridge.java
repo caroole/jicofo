@@ -17,14 +17,14 @@
  */
 package mock.jvb;
 
-import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
-import net.java.sip.communicator.impl.protocol.jabber.extensions.health.*;
+import org.jitsi.xmpp.extensions.colibri.*;
+import org.jitsi.xmpp.extensions.health.*;
 import net.java.sip.communicator.util.*;
 
-import net.java.sip.communicator.util.Logger;
 import org.jitsi.impl.neomedia.rtp.*;
 import org.jitsi.protocol.xmpp.*;
-import org.jitsi.util.*;
+import org.jitsi.utils.*;
+import org.jitsi.utils.logging.Logger;
 import org.jitsi.videobridge.*;
 
 import org.jivesoftware.smack.iqrequest.*;
