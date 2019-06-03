@@ -17,11 +17,12 @@
  */
 package org.jitsi.jicofo.util;
 
-import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
+import org.jitsi.xmpp.extensions.jingle.*;
 
 import org.jitsi.service.configuration.*;
 import org.jitsi.service.neomedia.*;
 import org.jitsi.service.neomedia.codec.*;
+import org.jitsi.utils.*;
 
 import java.net.*;
 import java.util.*;

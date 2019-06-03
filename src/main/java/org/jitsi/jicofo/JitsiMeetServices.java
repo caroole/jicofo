@@ -18,8 +18,7 @@
 package org.jitsi.jicofo;
 
 import net.java.sip.communicator.impl.protocol.jabber.*;
-import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
-import net.java.sip.communicator.util.Logger;
+import org.jitsi.xmpp.extensions.colibri.*;
 
 import org.jitsi.eventadmin.*;
 import org.jitsi.jicofo.discovery.*;
@@ -31,7 +30,8 @@ import org.jitsi.jicofo.xmpp.*;
 import org.jitsi.osgi.*;
 import org.jitsi.protocol.xmpp.*;
 import org.jitsi.service.configuration.*;
-import org.jitsi.util.*;
+import org.jitsi.utils.*;
+import org.jitsi.utils.logging.*;
 
 import org.jxmpp.jid.*;
 import org.osgi.framework.*;
@@ -63,9 +63,7 @@ public class JitsiMeetServices
             ProtocolProviderServiceJabberImpl
                 .URN_XMPP_JINGLE_DTLS_SRTP,
             ProtocolProviderServiceJabberImpl
-                .URN_XMPP_JINGLE_ICE_UDP_1,
-            ProtocolProviderServiceJabberImpl
-                .URN_XMPP_JINGLE_RAW_UDP_0
+                .URN_XMPP_JINGLE_ICE_UDP_1
         };
 
     /**

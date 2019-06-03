@@ -17,14 +17,14 @@
  */
 package org.jitsi.jicofo;
 
-import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
-import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
+import org.jitsi.xmpp.extensions.colibri.*;
+import org.jitsi.xmpp.extensions.jingle.*;
 import net.java.sip.communicator.service.protocol.*;
 import net.java.sip.communicator.service.protocol.event.*;
 import net.java.sip.communicator.util.*;
 
 import org.jitsi.impl.protocol.xmpp.colibri.*;
-import org.jitsi.impl.protocol.xmpp.extensions.*;
+import org.jitsi.xmpp.extensions.jitsimeet.*;
 import org.jitsi.jicofo.event.*;
 import org.jitsi.jicofo.jigasi.*;
 import org.jitsi.jicofo.recording.jibri.*;
@@ -33,7 +33,7 @@ import org.jitsi.protocol.xmpp.colibri.*;
 import org.jitsi.protocol.xmpp.util.*;
 import org.jitsi.eventadmin.*;
 
-import org.jitsi.util.Logger;
+import org.jitsi.utils.logging.Logger;
 import org.jivesoftware.smack.packet.*;
 import org.jxmpp.jid.*;
 import org.jxmpp.jid.impl.*;
@@ -2201,6 +2201,14 @@ public class JitsiMeetConferenceImpl
         if (!doMute && !fromJid.equals(toBeMutedJid))
         {
             logger.warn("Blocking an unmute request (jid not the same).");
+            return false;
+        }
+
+        // we do not want to remotely mute jigasi as currently
+        // there is no way for it to unmute
+        if (doMute && participant.isSipGateway())
+        {
+            logger.warn("Blocking mute request to jigasi.");
             return false;
         }
 
