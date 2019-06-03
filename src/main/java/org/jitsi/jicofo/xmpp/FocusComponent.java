@@ -17,16 +17,30 @@
  */
 package org.jitsi.jicofo.xmpp;
 
+import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
 import net.java.sip.communicator.util.*;
+import net.java.sip.communicator.util.Logger;
 
-import org.jitsi.xmpp.extensions.colibri.*;
-import org.jitsi.xmpp.extensions.jitsimeet.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+
+import org.jitsi.impl.protocol.xmpp.extensions.*;
 import org.jitsi.jicofo.*;
 import org.jitsi.jicofo.auth.*;
 import org.jitsi.jicofo.reservation.*;
+import org.jitsi.jicofo.reservation.ReservationSystem.Result;
 import org.jitsi.meet.*;
 import org.jitsi.service.configuration.*;
-import org.jitsi.utils.*;
+import org.jitsi.util.*;
 import org.jitsi.xmpp.component.*;
 import org.jitsi.xmpp.util.*;
 
@@ -60,6 +74,11 @@ public class FocusComponent
     public static final String SHUTDOWN_ALLOWED_JID_PNAME
         = "org.jitsi.jicofo.SHUTDOWN_ALLOWED_JID";
 
+    private final static int ROOM_POLICY_ERROR_OK = 0;
+    private final static int ROOM_POLICY_ERROR_INVALID_ROOM = 1;
+    private final static int ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT = 2;
+    private final static int ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE = 4;
+    
     /**
      * The JID from which shutdown requests are accepted.
      */
@@ -340,7 +359,7 @@ public class FocusComponent
      *         which should be returned to the user
      */
     public org.jivesoftware.smack.packet.IQ processExtensions(
-            ConferenceIq query, ConferenceIq response, boolean roomExists)
+            ConferenceIq query, ConferenceIq response, boolean roomExists,boolean canCreate)
     {
         Jid peerJid = query.getFrom();
         String identity = null;
@@ -361,7 +380,7 @@ public class FocusComponent
             if (!roomExists)
             {
                 identity = authAuthority.getUserIdentity(peerJid);
-                if (identity == null)
+                if (identity == null || !canCreate)
                 {
                     // Error not authorized
                     return ErrorFactory.createNotAuthorizedError(
@@ -397,16 +416,32 @@ public class FocusComponent
     {
         ConferenceIq response = new ConferenceIq();
         EntityBareJid room = query.getRoom();
+        
 
         logger.info("Focus request for room: " + room);
 
-        if(!validRoomName(room)) {
-
-            // Error not authorized
-            return ErrorFactory.createNotAuthorizedError(
-                query, "not authorized for this room");
+        JitsiMeetConferenceImpl conference = focusManager.getConference(room);
+        Map<String,String> errMsg = new HashMap();
+        String expireDate = "";
+        boolean canCreateConference = true;
+        switch(validRoomPolicy(query,conference,errMsg)) {
+        case ROOM_POLICY_ERROR_INVALID_ROOM:
+        	return ErrorFactory.createReservationError(
+                query, new Result(ROOM_POLICY_ERROR_INVALID_ROOM,"INVALID_ROOM"));
+        case ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT:
+        	return ErrorFactory.createReservationError(
+                    query, new Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
+        case ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE:
+        	canCreateConference = false;
+        	break;
+        default:
+        	break;
+        	
         }
-        boolean roomExists = focusManager.getConference(room) != null;
+        if(errMsg.get("expireDate") != null) {
+        	expireDate = errMsg.get("expireDate");
+        }
+        boolean roomExists = conference != null;
 
         if (focusManager.isShutdownInProgress() && !roomExists)
         {
@@ -414,18 +449,22 @@ public class FocusComponent
             return ColibriConferenceIQ
                     .createGracefulShutdownErrorResponse(query);
         }
+        
 
         // Authentication and reservations system logic
         org.jivesoftware.smack.packet.IQ error
-            = processExtensions(query, response, roomExists);
+            = processExtensions(query, response, roomExists,canCreateConference);
         if (error != null)
         {
             return error;
         }
+        
+        Map<String, String> propertiesMap = query.getPropertiesMap();
+        propertiesMap.put("sessionId", query.getSessionId());
 
         boolean ready
             = focusManager.conferenceRequest(
-                    room, query.getPropertiesMap());
+                    room, propertiesMap);
 
         if (!isFocusAnonymous && authAuthority == null)
         {
@@ -443,6 +482,14 @@ public class FocusComponent
 
         // Config
         response.setFocusJid(focusAuthJid);
+
+        response.setExtensionMsg("ok");
+        response.setIdentity("ok");
+        if(!expireDate.isEmpty()) {
+	        // extensionMsg
+	        response.setExtensionMsg(expireDate);
+	        response.setIdentity(expireDate);
+        }
 
         // Authentication module enabled?
         response.addProperty(
@@ -468,9 +515,124 @@ public class FocusComponent
         return response;
     }
 
-    private boolean validRoomName(EntityBareJid room) {
+    private int validRoomPolicy(ConferenceIq iq, JitsiMeetConferenceImpl roomImpl,Map<String,String> errMsg) {
 		// TODO Auto-generated method stub
+    	Properties prop = new Properties();
+    	FileInputStream fis;
+    	EntityBareJid roomEnt = iq.getRoom();
+    	String roomName = roomEnt.toString().split("@")[0];
+		try {
+			if(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)!=null 
+					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION).length()>0
+					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME)!=null 
+					&& System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME).length()>0) {
+				File f = new File(System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_LOCATION)
+						+"/"
+						+System.getProperty(ConfigurationService.PNAME_SC_HOME_DIR_NAME)
+						+"/room.properties");
+				if(f.exists()) {
+					fis = new FileInputStream(f);
+				}
+				else {
+					logger.info("room.properties not found");
+					return ROOM_POLICY_ERROR_OK;
+				}
+			}
+			else {
+				File f = new File("/root/room.properties");
+				if(f.exists()) {
+					fis = new FileInputStream("/root/room.properties");
+				}
+				else {
+					logger.info("room.properties not found");
+					return ROOM_POLICY_ERROR_OK;					
+				}
+			}
+	    	prop.load(fis);  
+	    	fis.close();
+	    	logger.info("validRoomName:"+prop.toString());
+	    	
+	    	
+	    	
+	    	for (String key : prop.stringPropertyNames()) {
+	            if(key.equals(roomName)) {
+	            	
+	            	String[] values = prop.getProperty(key).split(",");
+
+	            	//第一个必须为日期限制,第四个是日期到期提醒天数
+	    	    	if(values.length >=1 ) {
+	    	    		long expireDate = validRoomDate(values[0]);
+	    	    		if(expireDate <= 0){
+	    	    			return ROOM_POLICY_ERROR_INVALID_ROOM;
+	    	    		}
+	    	    		else if(values.length >=4) {
+	    	    			int days = Integer.parseInt(values[3]);
+	    	    			if(days > 0) {
+	    	    				if(expireDate <= 86400000 * days) {
+	    	    	    			errMsg.put("expireDate", values[0]);
+	    	    	    		}
+	    	    			}
+	    	    		}
+	    	    		else if(expireDate <= 86400000 * 10) {
+	    	    			errMsg.put("expireDate", values[0]);
+	    	    		}
+	    	    	}
+	    	    	//第二个为人数限制
+	    	    	if(values.length >= 2 && roomImpl!=null && !validRoomParticipantCount(Integer.parseInt(values[1]),roomImpl.getParticipantCount())) {
+	    	    		return ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT;
+	    	    	}
+	    	    	//第三个是管理员账号限制
+	    	    	if( values.length >= 3 ) {
+	    	    		String user = iq.getFrom().getLocalpartOrNull().toString();
+	    	    		String[] userList = values[2].split(":");
+	    	    		boolean bFind = false;
+	    	    		for(String u:userList) {
+	    	    			if(u.equals(user)) {
+	    	    				bFind = true;
+	    	    				break;
+	    	    			}
+	    	    		}
+	    	    		if(!bFind) {
+	    	    			return ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE;
+	    	    		}
+	    	    	}
+	    	    	return ROOM_POLICY_ERROR_OK;
+	            }
+	        }
+	    	return ROOM_POLICY_ERROR_INVALID_ROOM;
+
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return ROOM_POLICY_ERROR_OK;
+	}
+
+	private boolean validRoomParticipantCount(int limitCount, int roomCount) {
+		// TODO Auto-generated method stub
+		logger.info("validRoomParticipantCount:"+limitCount+" "+roomCount);
+		if(limitCount>roomCount)
+			return true;
 		return false;
+	}
+
+	private long validRoomDate(String validDate) {
+
+    	Date d;
+		try {
+			SimpleDateFormat aDate=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			d = aDate.parse(validDate);
+			return d.getTime() - new Date().getTime();
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return 86400000 * 100;
 	}
 
 	private org.jivesoftware.smack.packet.IQ handleAuthUrlIq(
