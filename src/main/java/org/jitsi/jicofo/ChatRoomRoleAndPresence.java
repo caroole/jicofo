@@ -17,6 +17,8 @@
  */
 package org.jitsi.jicofo;
 
+
+import org.jitsi.xmpp.extensions.jitsimeet.*;
 import net.java.sip.communicator.service.protocol.*;
 import net.java.sip.communicator.service.protocol.event.*;
 import net.java.sip.communicator.util.*;
@@ -26,7 +28,6 @@ import org.jitsi.jicofo.event.*;
 import org.jitsi.protocol.xmpp.*;
 import org.jitsi.utils.logging.Logger;
 import org.jitsi.eventadmin.*;
-import org.jitsi.impl.protocol.xmpp.extensions.LogoutIq;
 import org.jxmpp.jid.*;
 
 import java.util.*;

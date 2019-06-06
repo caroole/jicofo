@@ -17,10 +17,8 @@
  */
 package org.jitsi.jicofo.xmpp;
 
-import net.java.sip.communicator.impl.protocol.jabber.extensions.colibri.*;
 import net.java.sip.communicator.util.*;
-import net.java.sip.communicator.util.Logger;
-
+import org.jitsi.xmpp.extensions.colibri.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -33,14 +31,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import org.jitsi.impl.protocol.xmpp.extensions.*;
+import org.jitsi.xmpp.extensions.jitsimeet.*;
 import org.jitsi.jicofo.*;
 import org.jitsi.jicofo.auth.*;
 import org.jitsi.jicofo.reservation.*;
-import org.jitsi.jicofo.reservation.ReservationSystem.Result;
 import org.jitsi.meet.*;
 import org.jitsi.service.configuration.*;
-import org.jitsi.util.*;
+import org.jitsi.utils.*;
 import org.jitsi.xmpp.component.*;
 import org.jitsi.xmpp.util.*;
 
@@ -427,10 +424,10 @@ public class FocusComponent
         switch(validRoomPolicy(query,conference,errMsg)) {
         case ROOM_POLICY_ERROR_INVALID_ROOM:
         	return ErrorFactory.createReservationError(
-                query, new Result(ROOM_POLICY_ERROR_INVALID_ROOM,"INVALID_ROOM"));
+                query, new ReservationSystem.Result(ROOM_POLICY_ERROR_INVALID_ROOM,"INVALID_ROOM"));
         case ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT:
         	return ErrorFactory.createReservationError(
-                    query, new Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
+                    query, new ReservationSystem.Result(ROOM_POLICY_ERROR_EXCEED_MAX_PARTICIPANTS_COUNT,"EXCEED_MAX_PARTICIPANTS_COUNT"));
         case ROOM_POLICY_ERROR_USER_CANNOT_CREATE_CONFERENCE:
         	canCreateConference = false;
         	break;
@@ -483,11 +480,8 @@ public class FocusComponent
         // Config
         response.setFocusJid(focusAuthJid);
 
-        response.setExtensionMsg("ok");
         response.setIdentity("ok");
         if(!expireDate.isEmpty()) {
-	        // extensionMsg
-	        response.setExtensionMsg(expireDate);
 	        response.setIdentity(expireDate);
         }
 
