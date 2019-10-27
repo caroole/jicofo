@@ -648,10 +648,9 @@ public class BridgeSelector
      * @param bridgeJid the XMPP address of the videobridge for which we want to
      *        obtain the version.
      *
-     * @return {@link Version} instance which holds the details about JVB
-     *         version or <tt>null</tt> if unknown.
+     * @return JVB version or <tt>null</tt> if unknown.
      */
-    synchronized public Version getBridgeVersion(Jid bridgeJid)
+    synchronized public String getBridgeVersion(Jid bridgeJid)
     {
         Bridge bridge = bridges.get(bridgeJid);
 
@@ -778,6 +777,12 @@ public class BridgeSelector
             if (bridge == null)
             {
                 bridge = findFirstOperationalInRegion(bridges, localRegion);
+            }
+
+            // Otherwise, just find the first operational bridge.
+            if (bridge == null)
+            {
+                bridge = findFirstOperationalInRegion(bridges, null);
             }
 
             return bridge;
