@@ -262,6 +262,11 @@ public class JitsiMeetConferenceImpl
         = new ConferenceProperties();
 
     /**
+     * See {@link JitsiMeetConference#includeInStatistics()}
+     */
+    private final boolean includeInStatistics;
+
+    /**
      * Creates new instance of {@link JitsiMeetConferenceImpl}.
      *
      * @param roomName name of MUC room that is hosting the conference.
@@ -280,7 +285,8 @@ public class JitsiMeetConferenceImpl
                                    JitsiMeetConfig          config,
                                    JitsiMeetGlobalConfig    globalConfig,
                                    Level                    logLevel,
-                                   String                   id)
+                                   String                   id,
+                                   boolean                  includeInStatistics)
     {
         this.protocolProviderHandler
             = Objects.requireNonNull(
@@ -298,6 +304,20 @@ public class JitsiMeetConferenceImpl
         {
             logger.setLevel(logLevel);
         }
+        this.includeInStatistics = includeInStatistics;
+    }
+
+    public JitsiMeetConferenceImpl(EntityBareJid            roomName,
+                                   Resourcepart             focusUserName,
+                                   ProtocolProviderHandler  protocolProviderHandler,
+                                   ConferenceListener       listener,
+                                   JitsiMeetConfig          config,
+                                   JitsiMeetGlobalConfig    globalConfig,
+                                   Level                    logLevel,
+                                   String                   id)
+    {
+       this(roomName, focusUserName, protocolProviderHandler, listener,
+           config, globalConfig, logLevel, id, false);
     }
 
     /**
@@ -641,6 +661,7 @@ public class JitsiMeetConferenceImpl
             logger.info(
                     "Member "
                         + chatRoomMember.getContactAddress() + " joined.");
+            getFocusManager().getStatistics().totalParticipants.incrementAndGet();
 
             if (!isFocusMember(chatRoomMember))
             {
@@ -2337,8 +2358,20 @@ public class JitsiMeetConferenceImpl
     }
 
     /**
-     * Handles on bridge down event by shutting down the conference if it's the
-     * one we're using here.
+     * Notifies this conference that one of its channel allocators failed to
+     * allocate channels, and that the participants on a specific bridge need
+     * to be re-invited.
+     * @param bridgeJid the JID of the bridge on which participants need to be
+     * re-invited.
+     */
+    void channelAllocationFailed(Jid bridgeJid)
+    {
+        onBridgeDown(bridgeJid);
+    }
+
+    /**
+     * Notifies this conference that the bridge with a specific JID has failed.
+     * @param bridgeJid the JID of the bridge which failed.
      */
     void onBridgeDown(Jid bridgeJid)
     {
@@ -3005,6 +3038,17 @@ public class JitsiMeetConferenceImpl
                     bridge,
                     hashCode());
         }
+    }
+
+    @Override
+    public boolean includeInStatistics()
+    {
+        return includeInStatistics;
+    }
+
+    protected FocusManager getFocusManager()
+    {
+        return ServiceUtils.getService(FocusBundleActivator.bundleContext, FocusManager.class);
     }
 
     /**

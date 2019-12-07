@@ -21,7 +21,9 @@ import net.java.sip.communicator.service.protocol.*;
 import net.java.sip.communicator.service.protocol.event.*;
 import net.java.sip.communicator.util.*;
 
+import org.jetbrains.annotations.*;
 import org.jitsi.jicofo.event.*;
+import org.jitsi.jicofo.stats.*;
 import org.jitsi.jicofo.util.*;
 import org.jitsi.meet.*;
 import org.jitsi.service.configuration.*;
@@ -230,6 +232,11 @@ public class FocusManager
     private MeetExtensionsHandler meetExtensionsHandler;
 
     /**
+     * A class that holds Jicofo-wide statistics
+     */
+    private final Statistics statistics = new Statistics();
+
+    /**
      * Starts this manager for given <tt>hostName</tt>.
      */
     public void start()
@@ -312,7 +319,7 @@ public class FocusManager
     }
 
     /**
-     * Allocates new focus for given MUC room.
+     * Allocates new focus for given MUC room, using the default logging level.
      *
      * @param room the name of MUC room for which new conference has to be
      *             allocated.
@@ -335,6 +342,28 @@ public class FocusManager
     }
 
     /**
+     * Allocates new focus for given MUC room, including this conference
+     * in statistics.
+     *
+     * @param room the name of MUC room for which new conference has to be
+     *             allocated.
+     * @param properties configuration properties map included in the request.
+     * @return <tt>true</tt> if conference focus is in the room and ready to
+     *         handle session participants.
+     * @throws Exception if for any reason we have failed to create
+     *                   the conference
+     */
+    public boolean conferenceRequest(
+        EntityBareJid          room,
+        Map<String, String>    properties,
+        Level                  loggingLevel)
+        throws Exception
+    {
+        return conferenceRequest(room, properties, loggingLevel, true);
+    }
+
+
+    /**
      * Allocates new focus for given MUC room.
      *
      * @param room the name of MUC room for which new conference has to be
@@ -342,6 +371,8 @@ public class FocusManager
      * @param properties configuration properties map included in the request.
      * @param loggingLevel the logging level which should be used by the new
      * {@link JitsiMeetConference}
+     * @param includeInStatistics whether or not this conference should be
+     *                            included in statistics
      *
      * @return <tt>true</tt> if conference focus is in the room and ready to
      *         handle session participants.
@@ -351,7 +382,8 @@ public class FocusManager
     public boolean conferenceRequest(
             EntityBareJid          room,
             Map<String, String>    properties,
-            Level                  loggingLevel)
+            Level                  loggingLevel,
+            boolean                includeInStatistics)
         throws Exception
     {
         if (room == null)
@@ -370,7 +402,7 @@ public class FocusManager
                     return false;
                 }
 
-                conference = createConference(room, properties, loggingLevel);
+                conference = createConference(room, properties, loggingLevel, includeInStatistics);
             }
         }
 
@@ -417,7 +449,8 @@ public class FocusManager
      * @throws Exception if any error occurs.
      */
     private JitsiMeetConferenceImpl createConference(
-            EntityBareJid room, Map<String, String> properties, Level logLevel)
+            EntityBareJid room, Map<String, String> properties,
+            Level logLevel, boolean includeInStatistics)
         throws Exception
     {
         JitsiMeetConfig config = new JitsiMeetConfig(properties);
@@ -430,10 +463,16 @@ public class FocusManager
         JitsiMeetConferenceImpl conference
             = new JitsiMeetConferenceImpl(
                     room, focusUserName, protocolProviderHandler,
-                    this, config, globalConfig, logLevel, id);
+                    this, config, globalConfig, logLevel,
+                    id, includeInStatistics);
 
         conferences.put(room, conference);
         conferenceIds.add(id);
+
+        if (includeInStatistics)
+        {
+            statistics.totalConferencesCreated.incrementAndGet();
+        }
 
         if (conference.getLogger().isInfoEnabled())
         {
@@ -629,6 +668,13 @@ public class FocusManager
         return conferences.size();
     }
 
+    public int getNonHealthCheckConferenceCount()
+    {
+        return (int)conferences.values().stream()
+            .filter(JitsiMeetConferenceImpl::includeInStatistics)
+            .count();
+    }
+
     /**
      * Returns <tt>true</tt> if graceful shutdown mode has been enabled and
      * the process is going to be finished once conference count drops to zero.
@@ -704,6 +750,11 @@ public class FocusManager
             // Do initializations which require valid connection
             meetExtensionsHandler.init();
         }
+    }
+
+    public @NotNull Statistics getStatistics()
+    {
+        return statistics;
     }
 
     /**

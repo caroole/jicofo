@@ -1,6 +1,22 @@
+/*
+ * Copyright @ 2018 - present 8x8, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.jitsi.jicofo.rest;
 
 import org.jitsi.jicofo.*;
+import org.jitsi.jicofo.stats.*;
 import org.jitsi.jicofo.util.*;
 import org.json.simple.*;
 
@@ -10,59 +26,38 @@ import javax.ws.rs.core.*;
 
 import static org.jitsi.xmpp.extensions.colibri.ColibriStatsExtension.*;
 
+/**
+ * Adds statistics REST endpoint exposes some internal Jicofo stats.
+ */
 @Path("/stats")
 public class Statistics
 {
-    /**
-     * The number of buckets to use for conference sizes.
-     */
-    private static final int CONFERENCE_SIZE_BUCKETS = 22;
-
     @Inject
     protected FocusManagerProvider focusManagerProvider;
 
+    /**
+     * Returns json string with statistics.
+     * @return json string with statistics.
+     */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public String getStats()
     {
         FocusManager focusManager = focusManagerProvider.get();
+
+        JicofoStatisticsSnapshot snapshot
+            = JicofoStatisticsSnapshot.generate(focusManager);
         JSONObject json = new JSONObject();
-
-        int conferenceCount = focusManager.getConferenceCount();
-        json.put(CONFERENCES, conferenceCount);
-
-        int[] conferenceSizes = new int[CONFERENCE_SIZE_BUCKETS];
-        int largestConferenceSize = 0;
-        for (JitsiMeetConference conference : focusManager.getConferences())
-        {
-            int confSize = conference.getParticipantCount();
-            // getParticipantCount only includes endpoints with allocated media channels,
-            // so if a single participant is waiting in a meeting they wouldn't
-            // be counted.  In stats, calling this a conference with size 0
-            // would be misleading, so we add 1 in this case to properly show
-            // it as a conference of size 1.  (If there really weren't any
-            // participants in there at all, the conference wouldn't have
-            // existed in the first place).
-            if (confSize == 0)
-            {
-                confSize = 1;
-            }
-            if (confSize > largestConferenceSize)
-            {
-                largestConferenceSize = confSize;
-            }
-            int conferenceSizeIndex = confSize < conferenceSizes.length
-                ? confSize
-                : conferenceSizes.length - 1;
-            conferenceSizes[conferenceSizeIndex]++;
-        }
-
+        json.put(CONFERENCES, snapshot.numConferences);
+        json.put(LARGEST_CONFERENCE, snapshot.largestConferenceSize);
+        json.put(TOTAL_CONFERENCES_CREATED, snapshot.totalConferencesCreated);
+        json.put(PARTICIPANTS, snapshot.numParticipants);
+        json.put(TOTAL_PARTICIPANTS, snapshot.totalNumParticipants);
         JSONArray conferenceSizesJson = new JSONArray();
-        for (int size : conferenceSizes)
+        for (int size : snapshot.conferenceSizes)
         {
             conferenceSizesJson.add(size);
         }
-        json.put(LARGEST_CONFERENCE, largestConferenceSize);
         json.put(CONFERENCE_SIZES, conferenceSizesJson);
 
         return json.toJSONString();

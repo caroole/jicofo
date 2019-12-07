@@ -146,25 +146,26 @@ public class AuthBundleActivator
     {
         List<Handler> handlers = new ArrayList<>();
 
-        // FIXME While Shibboleth is optional, the health checks of Jicofo (over
-        // REST) are mandatory at the time of this writing. Make the latter
-        // optional as well (in a way similar to Videobridge, for example).
-        handlers.add(new org.jitsi.jicofo.rest.HandlerImpl(bundleContext));
-
-        ServletContextHandler appHandler = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
-        appHandler.setContextPath("/");
-        appHandler.addServlet(new ServletHolder(new ServletContainer(new Application(bundleContext))), "/*");
-        handlers.add(appHandler);
-
         // Shibboleth
         if (authAuthority instanceof ShibbolethAuthAuthority)
         {
+            logger.info("Adding Shibboleth handler");
             ShibbolethAuthAuthority shibbolethAuthAuthority
                 = (ShibbolethAuthAuthority) authAuthority;
 
             handlers.add(new ShibbolethHandler(shibbolethAuthAuthority));
         }
-    
+
+        // FIXME While Shibboleth is optional, the health checks of Jicofo (over
+        // REST) are mandatory at the time of this writing. Make the latter
+        // optional as well (in a way similar to Videobridge, for example).
+        ServletContextHandler appHandler
+            = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
+        appHandler.setContextPath("/");
+        appHandler.addServlet(new ServletHolder(new ServletContainer(
+            new Application(bundleContext))), "/*");
+        handlers.add(appHandler);
+
         return initializeHandlerList(handlers);
     }
 
