@@ -109,6 +109,11 @@ public class JingleOfferFactory
     public static final String ENABLE_RID_PNAME = "org.jitsi.jicofo.ENABLE_RID";
 
     /**
+     * The ID of the transport-cc header extension.
+     */
+    private static final String TRANSPORT_CC_ID = "5";
+
+    /**
      * The VP8 payload type to include in the Jingle session-invite.
      */
     private final int VP8_PT;
@@ -472,9 +477,8 @@ public class JingleOfferFactory
         if (enableTcc)
         {
             // a=extmap:5 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
-            RTPHdrExtPacketExtension tcc
-                = new RTPHdrExtPacketExtension();
-            tcc.setID("5");
+            RTPHdrExtPacketExtension tcc = new RTPHdrExtPacketExtension();
+            tcc.setID(TRANSPORT_CC_ID);
             tcc.setURI(URI.create(RTPExtension.TRANSPORT_CC_URN));
             rtpDesc.addExtmap(tcc);
 
@@ -616,11 +620,13 @@ public class JingleOfferFactory
      * Adds the video-related extensions for an offer to a
      * {@link ContentPacketExtension}.
      * @param content the {@link ContentPacketExtension} to add extensions to.
-     * @param stereo enable transport-cc
-     * @param enableTcc enable opus stereo mode
+     * @param stereo Whether to enable stereo for opus.
+     * @param enableRemb Whether to enable REMB.
+     * @param enableTcc Whether to enable transport-cc.
      */
     private static void addAudioToContent(ContentPacketExtension content,
-                                          boolean stereo, boolean enableRemb, boolean enableTcc)
+                                          boolean stereo, boolean enableRemb,
+                                          boolean enableTcc)
     {
         RtpDescriptionPacketExtension rtpDesc
             = new RtpDescriptionPacketExtension();
@@ -652,6 +658,12 @@ public class JingleOfferFactory
 
         if (enableTcc)
         {
+            // a=extmap:5 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+            RTPHdrExtPacketExtension tcc = new RTPHdrExtPacketExtension();
+            tcc.setID(TRANSPORT_CC_ID);
+            tcc.setURI(URI.create(RTPExtension.TRANSPORT_CC_URN));
+            rtpDesc.addExtmap(tcc);
+
             // a=rtcp-fb:111 transport-cc
             opus.addRtcpFeedbackType(
                 createRtcpFbPacketExtension("transport-cc", null));

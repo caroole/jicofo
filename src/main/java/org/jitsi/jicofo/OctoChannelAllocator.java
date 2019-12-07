@@ -17,6 +17,7 @@
  */
 package org.jitsi.jicofo;
 
+import org.jitsi.protocol.xmpp.colibri.exception.*;
 import org.jitsi.xmpp.extensions.colibri.*;
 import org.jitsi.xmpp.extensions.jingle.*;
 import net.java.sip.communicator.service.protocol.*;
@@ -114,7 +115,7 @@ public class OctoChannelAllocator extends AbstractChannelAllocator
     @Override
     protected ColibriConferenceIQ doAllocateChannels(
         List<ContentPacketExtension> offer)
-        throws OperationFailedException
+        throws ColibriException
     {
         // This is a blocking call.
         ColibriConferenceIQ result =
@@ -136,7 +137,13 @@ public class OctoChannelAllocator extends AbstractChannelAllocator
             participant.setColibriChannelsInfo(result);
 
             // Check if the sources of the participant need an update.
-            boolean update = participant.updateSources();
+            boolean update = false;
+
+            if (participant.updateSources())
+            {
+                update = true;
+                logger.info("Will update the sources of the Octo participant " + this);
+            }
 
             // Check if the relays need an update. We always use the same set
             // of relays for the audio and video channels, so just check video.
@@ -158,12 +165,9 @@ public class OctoChannelAllocator extends AbstractChannelAllocator
                 {
                     update = true;
 
-                    if (logger.isDebugEnabled())
-                    {
-                        logger.debug(
+                    logger.info(
                             "Relays need updating. Response: " + responseRelays
                                 + ", participant:" + participant.getRelays());
-                    }
                 }
             }
 

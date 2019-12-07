@@ -1,5 +1,7 @@
 /*
- * Copyright @ 2015 Atlassian Pty Ltd
+ * Jicofo, the Jitsi Conference Focus.
+ *
+ * Copyright @ 2019-Present 8x8 Inc
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jitsi.jicofo.version;
-
-import org.jitsi.utils.version.*;
-import org.jitsi.version.*;
+package org.jitsi.protocol.xmpp.colibri.exception;
 
 /**
- * Extends {@link AbstractVersionActivator} in order to provider the
- * {@code VersionService} implementation for the Jicofo.
- *
- * @author Pawel Domas
+ * A {@link ColibriException} indicating that the remote Colibri endpoint
+ * responded to our request with a "conference not found" error.
  */
-public class VersionActivator
-    extends AbstractVersionActivator
+public class ConferenceNotFoundException extends ColibriException
 {
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected Version getCurrentVersion()
+    public ConferenceNotFoundException(String message)
     {
-        return CurrentVersionImpl.VERSION;
+        super(message);
+    }
+
+    @Override
+    public ColibriException clone(String prefix)
+    {
+        return new ConferenceNotFoundException(prefix + getMessage());
     }
 }
