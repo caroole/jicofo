@@ -171,7 +171,7 @@ public class MeetExtensionsHandler
 
         IQ result;
 
-        if (conference.handleMuteRequest(muteIq.getFrom(), jid, doMute))
+        if (true || conference.handleMuteRequest(muteIq.getFrom(), jid, doMute))
         {
             result = IQ.createResultIQ(muteIq);
 
